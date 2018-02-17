@@ -1,0 +1,7 @@
+adapter: mysql2
+encoding: utf8
+host: <%= ENV['COREPROTECT_DATABASE_HOST'] %>
+database: database
+username: root
+password: <%= ENV['COREPROTECT_DATABASE_PASSWORD'] %>
+init_command: SET MAX_EXECUTION_TIME = 100
