@@ -12,11 +12,59 @@ class Block < ApplicationRecord
   scope :placed, -> { where(action: 1) }
   scope :clicked, -> { where(action: 2) }
   scope :killed, -> { where(action: 3) }
+  scope :flows, -> { where(arel_table[:user].in([fire, water, lava])) }
+
+  def self.fire
+    @fire ||= User.find_by!(user: '#fire')
+  end
+
+  def self.water
+    @water ||= User.find_by!(user: '#water')
+  end
+
+  def self.lava
+    @lava ||= User.find_by!(user: '#lava')
+  end
 
   class Tile < Block
     default_scope { killed }
 
     belongs_to :entity_map, foreign_key: 'type', inverse_of: 'blocks'
     belongs_to :entity, dependent: :destroy, foreign_key: 'data', inverse_of: 'block'
+
+    scope :staled, -> { where(endermans_2014.or(endermans_2017).or(creepers)) }
+
+    def self.endermans_2014
+      @endermans2014 ||= begin
+        world_2014_the_end = World.find_by!(world: 'world_2014_the_end')
+        entity_enderman = EntityMap.find_by!(entity: 'enderman')
+
+        arel_table[:wid].eq(world_2014_the_end.id).and(
+          arel_table[:type].eq(entity_enderman.id)
+        )
+      end
+    end
+
+    def self.endermans_2017
+      @endermans2017 ||= begin
+        world_2017_the_end = World.find_by!(world: 'world_2014_the_end')
+        entity_enderman = EntityMap.find_by!(entity: 'enderman')
+
+        arel_table[:wid].eq(world_2017_the_end.id).and(
+          arel_table[:type].eq(entity_enderman.id)
+        )
+      end
+    end
+
+    def self.creepers
+      @creepers ||= begin
+        creeper = User.find_by!(user: '#creeper')
+        entity_creeper = EntityMap.find_by!(entity: 'creeper')
+
+        arel_table[:user].eq(creeper.rowid).and(
+          arel_table[:type].eq(entity_creeper.id)
+        )
+      end
+    end
   end
 end
