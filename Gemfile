@@ -13,3 +13,8 @@ gem 'dotenv'
 gem 'activerecord'
 gem 'activesupport'
 gem 'mysql2'
+
+group :development do
+  gem 'unicode-display_width', '1.3.0'
+  gem 'rubocop', '~> 0.50.0', require: false
+end

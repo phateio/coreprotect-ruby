@@ -6,7 +6,7 @@ Dir[File.dirname(__FILE__) + '/../models/*.rb'].each { |file| require File.expan
 
 ActiveRecord::Base.connection.enable_query_cache!
 
-QUERY_TIME = Time.zone.now.freeze
+QUERY_TIME = Time.now.freeze
 START = Integer(ENV['START'] || Block.reorder(rowid: :desc).first.rowid - 100_000_000)
 ENDED = Block::Tile.last.rowid - 10_000_000
 STEP = 1000
@@ -25,5 +25,5 @@ end
   affected_rows += deleted_blocks.size
 end
 
-elapsed_time = Time.zone.now - QUERY_TIME.freeze
+elapsed_time = Time.now - QUERY_TIME.freeze
 puts printf('Query OK, %d rows affected (%.2f sec)', affected_rows, elapsed_time)

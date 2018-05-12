@@ -1,0 +1,36 @@
+AllCops:
+  Include:
+    - '**/config.ru'
+    - '**/Rakefile'
+  Exclude:
+    - 'db/migrate/*'
+    - 'db/schema.rb'
+    - 'bin/**'
+
+Rails:
+  Enabled: true
+
+Bundler/OrderedGems:
+  Enabled: false
+
+Metrics/BlockLength:
+  Exclude:
+    - 'Rakefile'
+    - '**/*.rake'
+    - 'spec/**/*.rb'
+
+Metrics/LineLength:
+  Max: 120
+
+Naming/FileName:
+  Exclude:
+    - 'Gemfile'
+
+Rails/TimeZone:
+  Enabled: false
+
+Style/Documentation:
+  Enabled: false
+
+Security/YAMLLoad:
+  Enabled: false
