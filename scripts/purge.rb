@@ -4,6 +4,8 @@ require 'dotenv/load'
 require File.expand_path(File.dirname(__FILE__) + '/../models/application_record')
 Dir[File.dirname(__FILE__) + '/../models/*.rb'].each { |file| require File.expand_path(file) }
 
+STDOUT.sync = true
+STDERR.sync = true
 ActiveRecord::Base.connection.enable_query_cache!
 
 QUERY_TIME = Time.now.freeze
