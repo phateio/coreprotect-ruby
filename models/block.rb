@@ -12,6 +12,7 @@ class Block < ApplicationRecord
   scope :placed, -> { where(action: 1) }
   scope :clicked, -> { where(action: 2) }
   scope :killed, -> { where(action: 3) }
+  scope :built, -> { where(action: [0, 1]) }
   scope :flows, -> { where(arel_table[:user].in([fire, water, lava])) }
 
   def self.fire
@@ -66,5 +67,22 @@ class Block < ApplicationRecord
         )
       end
     end
+  end
+
+  def self.bsearch(low = first, high = last)
+    return low unless low && high && !yield(low) && yield(high)
+
+    100.times do
+      mid = where(arel_table[:rowid].gteq(low.rowid + (high.rowid - low.rowid) / 2)).first
+      return high if low.rowid == mid.rowid || high.rowid == mid.rowid
+
+      if yield(mid)
+        high = mid
+      else
+        low = mid
+      end
+    end
+
+    raise ActiveRecord::RecordNotFound
   end
 end
