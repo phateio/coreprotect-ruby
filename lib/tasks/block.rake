@@ -10,7 +10,7 @@ namespace :block do
     if ActiveRecord::Type::Boolean.new.type_cast_from_user(ENV['DELETE'])
       legacy_blocks = Block.arel_table[:rowid].lt(block_id)
       Block.where(legacy_blocks).find_in_batches do |blocks|
-        Block.where(id: blocks.map(&:id)).delete_all
+        Block.where(rowid: blocks.map(&:id)).delete_all
       end
     end
   end
