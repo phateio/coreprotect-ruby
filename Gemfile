@@ -13,6 +13,7 @@ gem 'dotenv'
 gem 'activerecord'
 gem 'activesupport'
 gem 'mysql2'
+gem 'pry'
 
 group :development do
   gem 'unicode-display_width', '1.3.0'
