@@ -1,1 +1,4 @@
 en:
+  estimated_record_deletion_message: "Estimated %<count>s rows to be deleted."
+  record_deletion_prompt: "Estimated %<count>s rows to be deleted, are you sure you want to continue?"
+  prompt_canceled_message: "Canceled tasks. Exit."
