@@ -4,4 +4,4 @@ host: <%= ENV['COREPROTECT_DATABASE_HOST'] %>
 database: <%= ENV['COREPROTECT_DATABASE_DATABASE'] %>
 username: <%= ENV['COREPROTECT_DATABASE_USERNAME'] %>
 password: <%= ENV['COREPROTECT_DATABASE_PASSWORD'] %>
-init_command: SET MAX_EXECUTION_TIME = <%= ENV.fetch('TIMEOUT', 500) %>
+init_command: SET MAX_EXECUTION_TIME = <%= ENV.fetch('TIMEOUT', 1000) %>
