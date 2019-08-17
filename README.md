@@ -25,9 +25,13 @@ An utility for purging old data of CoreProtect in production
 
        $ bundle install
 
-4. Edit database configurations:
+4. Create your own environment variables configuration:
 
-       $ vi ./config/database.yml
+       $ cp .env.template .env
+
+5. Edit database configurations:
+
+       $ vi .env
 
 ## Usage
 
