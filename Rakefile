@@ -22,3 +22,5 @@ ActiveRecord::Base.connection.enable_query_cache!
 ActiveRecord::Base.logger = Logger.new(STDOUT)
 
 Rake.add_rakelib 'lib/tasks'
+
+I18n.load_path << Dir[File.expand_path('config/locales') + '/*.yml']

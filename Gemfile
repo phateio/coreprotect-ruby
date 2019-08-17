@@ -13,6 +13,7 @@ gem 'dotenv'
 gem 'activerecord'
 gem 'activesupport'
 gem 'mysql2'
+gem 'i18n'
 gem 'pry'
 
 group :development do
