@@ -17,7 +17,7 @@ ActiveRecord::Schema.define(version: 0) do
     t.string "art"
   end
 
-  create_table "co_block", primary_key: "rowid", id: :integer, unsigned: true, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8", force: :cascade do |t|
+  create_table "co_block", primary_key: "rowid", options: "ENGINE=InnoDB DEFAULT CHARSET=utf8", force: :cascade do |t|
     t.integer "time"
     t.integer "user"
     t.integer "wid"
@@ -27,12 +27,10 @@ ActiveRecord::Schema.define(version: 0) do
     t.integer "type"
     t.integer "data"
     t.binary "meta"
+    t.binary "blockdata"
     t.integer "action"
     t.boolean "rolled_back"
-    t.binary "blockdata"
-    t.index ["data", "time"], name: "data"
     t.index ["type", "time"], name: "type"
-    t.index ["user", "action", "time"], name: "user_action"
     t.index ["user", "time"], name: "user"
     t.index ["wid", "x", "z", "time"], name: "wid"
   end
@@ -117,11 +115,11 @@ ActiveRecord::Schema.define(version: 0) do
     t.integer "x"
     t.integer "y"
     t.integer "z"
+    t.integer "color"
     t.string "line_1", limit: 100
     t.string "line_2", limit: 100
     t.string "line_3", limit: 100
     t.string "line_4", limit: 100
-    t.integer "color"
     t.index ["wid", "x", "z", "y", "time"], name: "wid"
   end
 
