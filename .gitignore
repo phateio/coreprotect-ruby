@@ -1,3 +1,7 @@
+# Ignore bundler config.
+/.bundle
+/vendor
+
 # Ignore local dotenv files
 /.env
 /.env.local

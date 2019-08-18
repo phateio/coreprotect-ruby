@@ -23,7 +23,7 @@ An utility for purging old data of CoreProtect in production
 
 3. Install gems:
 
-       $ bundle install
+       $ bundle install --path vendor/bundle --binstubs bin
 
 4. Create your own environment variables configuration:
 
@@ -35,7 +35,7 @@ An utility for purging old data of CoreProtect in production
 
 ## Usage
 
-Use `thor help co:purge` command for help:
+Use `bin/thor help co:purge` command for help:
 
 ```
 Usage:
@@ -57,23 +57,23 @@ Purge blocks from the database
 
 - Delete blocks older than 30 days ago (default):
 
-       $ thor co:purge
+       $ bin/thor co:purge
 
 - Delete blocks older than 1546300800 (Tue, 01 Jan 2019 00:00:00 UTC +00:00):
 
-       $ thor co:purge --end=1546300800
+       $ bin/thor co:purge --end=1546300800
 
 - Delete blocks of fire, water and lava spreading:
 
-       $ thor co:purge --user=#fire,#water,#lava
+       $ bin/thor co:purge --user=#fire,#water,#lava
 
 - Delete blocks of a specific world:
 
-       $ thor co:purge --world=world_2018
+       $ bin/thor co:purge --world=world_2018
 
 - Delete blocks without prompt:
 
-       $ thor co:purge --yes
+       $ bin/thor co:purge --yes
 
 ## Contributing
 Bug reports and pull requests are welcome.
