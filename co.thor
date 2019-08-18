@@ -90,6 +90,12 @@ class Co < Thor
     options[:step]
   end
 
+  def option_world_ids
+    worlds = options[:world].split(',')
+    worlds.each { |world| World.find_by!(world: world) }
+    World.where(world: worlds).ids
+  end
+
   def option_user_ids
     users = options[:user].split(',')
     users.each { |user| User.find_by!(user: user) }
@@ -100,7 +106,7 @@ class Co < Thor
     return @block_options if @block_options
 
     @block_options = {}
-    @block_options[:wid] = World.find_by!(world: options[:world].split(',')) if options[:world]
+    @block_options[:wid] = option_world_ids if options[:world]
     @block_options[:user] = option_user_ids if options[:user]
     @block_options
   end
