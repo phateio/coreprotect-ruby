@@ -14,6 +14,7 @@ gem 'activerecord'
 gem 'activesupport'
 gem 'mysql2'
 gem 'i18n'
+gem 'thor'
 gem 'pry'
 
 group :development do

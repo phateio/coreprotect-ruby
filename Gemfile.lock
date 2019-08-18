@@ -40,6 +40,7 @@ GEM
       ruby-progressbar (~> 1.7)
       unicode-display_width (~> 1.0, >= 1.0.1)
     ruby-progressbar (1.10.0)
+    thor (0.20.3)
     thread_safe (0.3.6)
     tzinfo (1.2.5)
       thread_safe (~> 0.1)
@@ -56,6 +57,7 @@ DEPENDENCIES
   mysql2
   pry
   rubocop
+  thor
 
 RUBY VERSION
    ruby 2.3.3p222
