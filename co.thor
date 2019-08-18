@@ -99,7 +99,7 @@ class Co < Thor
   def option_user_ids
     users = options[:user].split(',')
     users.each { |user| User.find_by!(user: user) }
-    User.where(user: options[:user].split(',')).ids
+    User.where(user: users).ids
   end
 
   def block_options
