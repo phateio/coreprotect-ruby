@@ -35,17 +35,45 @@ An utility for purging old data of CoreProtect in production
 
 ## Usage
 
-- Delete blocks older than 1 month (Dry run):
+Use `thor help co:purge` command for help:
 
-       $ rake block:purge
+```
+Usage:
+  thor co:purge
 
-- Delete blocks older than 1 month:
+Options:
+      [--end=N]            # Stop at specific timestamp
+      [--start=N]          # Started at specific timestamp
+      [--step=N]           # Iterate with specific number of rows
+                           # Default: 1000
+  -u, [--user=USER]        # Specific users (separated by commas)
+  -w, [--world=WORLD]      # Specific worlds (separated by commas)
+  -y, [--yes], [--no-yes]  # Delete the records without prompt
 
-       $ rake block:purge DELETED=true
+Purge blocks from the database
+```
 
-- Use longer timeout in database connections:
+## Examples
 
-       $ rake block:purge TIMEOUT=5000
+- Delete blocks older than 30 days ago (default):
+
+       $ thor co:purge
+
+- Delete blocks older than 1546300800 (Tue, 01 Jan 2019 00:00:00 UTC +00:00):
+
+       $ thor co:purge --end=1546300800
+
+- Delete blocks of fire, water and lava spreading:
+
+       $ thor co:purge --user=#fire,#water,#lava
+
+- Delete blocks of a specific world:
+
+       $ thor co:purge --world=world_2018
+
+- Delete blocks without prompt:
+
+       $ thor co:purge --yes
 
 ## Contributing
 Bug reports and pull requests are welcome.

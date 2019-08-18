@@ -1,4 +1,7 @@
 en:
-  estimated_record_deletion_message: "Estimated %<count>s rows to be deleted."
-  record_deletion_prompt: "Estimated %<count>s rows to be deleted, are you sure you want to continue?"
-  prompt_canceled_message: "Canceled tasks. Exit."
+  logger_format: "[%<timestamp>s]%<message>s\n"
+  estimated_record_deletion_message: "Estimated %<count>s rows to be scan."
+  record_deletion_prompt: "Estimated %<count>s rows to be scan, are you sure you want to continue?"
+  purged_rows_message: "Purged total %<count>s rows."
+  resume_notice_message: "Resume your work by appending `--start=%<timestamp>d` (%<human_time>s) to the command."
+  prompt_canceled_message: "Canceled tasks."
