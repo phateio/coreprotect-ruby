@@ -11,6 +11,7 @@ class Co < Thor
 
   desc 'purge', 'Purge blocks from the database'
 
+  method_option :action, type: :string, aliases: '-a', desc: 'Specific actions (separated by commas)'
   method_option :end, type: :numeric, desc: 'Stop at specific timestamp'
   method_option :start, type: :numeric, desc: 'Started at specific timestamp'
   method_option :step, type: :numeric, default: 1000, desc: 'Iterate with specific number of rows'
@@ -102,12 +103,31 @@ class Co < Thor
     User.where(user: users).ids
   end
 
+  def option_action_ids
+    actions = options[:action].split(',')
+    actions.map do |action|
+      case action
+      when '-block'
+        0
+      when '+block'
+        1
+      when 'click'
+        2
+      when 'kill'
+        3
+      else
+        raise StandardError, "Expected '--action' to be one of -block, +block, click, kill"
+      end
+    end
+  end
+
   def block_options
     return @block_options if @block_options
 
     @block_options = {}
     @block_options[:wid] = option_world_ids if options[:world]
     @block_options[:user] = option_user_ids if options[:user]
+    @block_options[:action] = option_action_ids if options[:action]
     @block_options
   end
 

@@ -42,6 +42,7 @@ Usage:
   thor co:purge
 
 Options:
+  -a, [--action=ACTION]    # Specific actions (separated by commas)
       [--end=N]            # Stop at specific timestamp
       [--start=N]          # Started at specific timestamp
       [--step=N]           # Iterate with specific number of rows
@@ -65,7 +66,7 @@ Purge blocks from the database
 
 - Delete blocks of fire, water and lava spreading:
 
-       $ bin/thor co:purge --user=#fire,#water,#lava
+       $ bin/thor co:purge --user=#fire,#water,#lava --action=+block
 
 - Delete blocks of a specific world:
 
