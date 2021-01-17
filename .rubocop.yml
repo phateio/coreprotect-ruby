@@ -1,36 +1,25 @@
+require:
+  - rubocop-rails
+
 AllCops:
   Include:
-    - '**/config.ru'
-    - '**/Rakefile'
+    - 'Rakefile'
   Exclude:
-    - 'db/migrate/*'
+    - 'bin/*'
     - 'db/schema.rb'
-    - 'bin/**'
-
-Rails:
-  Enabled: true
 
 Bundler/OrderedGems:
-  Enabled: false
-
-Metrics/BlockLength:
-  Exclude:
-    - 'Rakefile'
-    - '**/*.rake'
-    - 'spec/**/*.rb'
-
-Metrics/LineLength:
-  Max: 120
-
-Naming/FileName:
-  Exclude:
-    - 'Gemfile'
-
-Rails/TimeZone:
   Enabled: false
 
 Style/Documentation:
   Enabled: false
 
-Security/YAMLLoad:
+Style/SymbolArray:
   Enabled: false
+
+Layout/LineLength:
+  Max: 120
+
+Metrics/MethodLength:
+  Exclude:
+    - db/migrate/*
