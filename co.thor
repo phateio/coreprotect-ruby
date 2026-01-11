@@ -1,5 +1,25 @@
 # frozen_string_literal: true
 
+require 'dotenv/load'
+require 'active_support'
+require 'active_support/core_ext'
+require 'erb'
+require 'yaml'
+require 'active_record'
+
+$stdout.sync = true
+$stderr.sync = true
+
+config = YAML.load(ERB.new(File.read(File.expand_path('config/database.yml', __dir__))).result)
+ActiveRecord::Base.establish_connection(config)
+ActiveRecord::Base.connection.enable_query_cache!
+
+# Load models explicitly (ActiveSupport 7.x removed classic autoloader)
+require File.expand_path('models/application_record', __dir__)
+Dir[File.expand_path('models/*.rb', __dir__)].each { |file| require file }
+
+I18n.load_path << Dir["#{File.expand_path('config/locales', __dir__)}/*.yml"]
+
 class MySimpleFormatter < ActiveSupport::Logger::SimpleFormatter
   def call(_severity, timestamp, _progname, message)
     format(I18n.t(:logger_format), timestamp: timestamp.strftime('%F %T'), message: message)
@@ -23,7 +43,7 @@ class Co < Thor
     before_action
     start_block.rowid.step(end_block.rowid, limit_param, &purge_proc)
   rescue StandardError, Interrupt => e
-    STDERR.puts e.message
+    warn e.message
   ensure
     human_count = ActiveSupport::NumberHelper.number_to_human(@purged_row_count)
     puts I18n.t(:purged_rows_message, count: human_count)
@@ -137,11 +157,11 @@ class Co < Thor
 
   def prompt_question(human_count)
     print format('%<message>s [y/N] ', message: I18n.t(:record_deletion_prompt, count: human_count))
-    STDIN.getc
+    $stdin.getc
   end
 
   def enable_active_record_logger
-    logger = ActiveSupport::Logger.new(STDOUT)
+    logger = ActiveSupport::Logger.new($stdout)
     logger.formatter = MySimpleFormatter.new
     ActiveRecord::Base.logger = logger
   end

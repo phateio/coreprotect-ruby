@@ -7,11 +7,12 @@ git_source(:github) do |repo_name|
   "https://github.com/#{repo_name}.git"
 end
 
-ruby '>= 2.0.0'
+ruby '>= 3.1.0'
 
+gem 'bigdecimal', '~> 3.1.0'
 gem 'dotenv'
-gem 'activerecord'
-gem 'activesupport'
+gem 'activerecord', '~> 7.2.0'
+gem 'activesupport', '~> 7.2.0'
 gem 'mysql2'
 gem 'i18n'
 gem 'thor'

@@ -11,16 +11,18 @@ require 'erb'
 require 'yaml'
 require 'active_record'
 
-STDOUT.sync = true
-STDERR.sync = true
+$stdout.sync = true
+$stderr.sync = true
 
-ActiveSupport::Dependencies.autoload_paths << File.join(Dir.pwd, 'models')
-
-config = YAML.load(ERB.new(IO.read('config/database.yml')).result)
+config = YAML.load(ERB.new(File.read('config/database.yml')).result)
 ActiveRecord::Base.establish_connection(config)
 ActiveRecord::Base.connection.enable_query_cache!
-ActiveRecord::Base.logger = Logger.new(STDOUT)
+ActiveRecord::Base.logger = Logger.new($stdout)
+
+# Load models explicitly (ActiveSupport 7.x removed classic autoloader)
+require File.expand_path('models/application_record', __dir__)
+Dir[File.expand_path('models/*.rb', __dir__)].each { |file| require file }
 
 Rake.add_rakelib 'lib/tasks'
 
-I18n.load_path << Dir[File.expand_path('config/locales') + '/*.yml']
+I18n.load_path << Dir["#{File.expand_path('config/locales')}/*.yml"]
