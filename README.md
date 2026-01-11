@@ -4,12 +4,12 @@ An utility for purging old data of CoreProtect in production
 **WARNING: This repo is still in development. Use at your own risk.**
 
 ## Requirements
-* Ruby >= 2.0.0
+* Ruby >= 3.1.0 (tested with Ruby 3.1.2 on Debian 12)
 
 ## Recommendations
-* `rbenv --version` # rbenv 1.0.0
-* `ruby --version` # ruby 2.5.5p157 (2019-03-15 revision 67260) [x86_64-darwin18]
-* `mysql --version` # mysql  Ver 14.14 Distrib 5.7.21, for osx10.11 (x86_64) using  EditLine wrapper
+* `rbenv --version` # rbenv 1.3.0+
+* `ruby --version` # ruby 3.1.2p20 (2022-04-12 revision 4491bb740a) [x86_64-linux-gnu]
+* `mysql --version` # mysql Ver 15.1 Distrib 10.11.14-MariaDB, for debian-linux-gnu (x86_64) using EditLine wrapper
 
 ## Installation
 
