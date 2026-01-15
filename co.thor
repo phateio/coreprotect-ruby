@@ -173,6 +173,6 @@ class Co < Thor
       timestamp: @last_block.time,
       human_time: Time.at(@last_block.time)
     }
-    puts I18n.t(:resume_notice_message, params)
+    puts I18n.t(:resume_notice_message, **params)
   end
 end
