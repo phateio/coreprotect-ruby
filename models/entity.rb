@@ -6,6 +6,16 @@ class Entity < ApplicationRecord
 
   has_one :block, class_name: 'Block::Tile', foreign_key: 'data', inverse_of: 'entity'
 
+  # Scope for finding orphaned entities (no corresponding block with action=3)
+  # Uses NOT EXISTS for efficiency with large datasets
+  scope :orphaned, lambda {
+    block_table = Block.arel_table
+    subquery = block_table.project(Arel.sql('1'))
+                          .where(block_table[:data].eq(arel_table[:rowid]))
+                          .where(block_table[:action].eq(3))
+    where(Arel::Nodes::Not.new(Arel::Nodes::Exists.new(subquery)))
+  }
+
   def self.bsearch(low = first, high = last)
     return low unless low && high && !yield(low) && yield(high)
 

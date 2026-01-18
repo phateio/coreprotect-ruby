@@ -5,3 +5,7 @@ en:
   purged_rows_message: "Purged total %<count>s rows."
   resume_notice_message: "Resume your work by appending `--start=%<timestamp>d` (%<human_time>s) to the command."
   prompt_canceled_message: "Canceled tasks."
+  estimated_orphaned_scan_message: "Estimated %<count>s entity rows to be scanned for orphans."
+  orphaned_deletion_prompt: "Estimated %<count>s entity rows to be scanned for orphans, are you sure you want to continue?"
+  purged_orphaned_entities_message: "Purged total %<count>s orphaned entity rows."
+  resume_orphaned_notice_message: "Resume your work by appending `--start=%<rowid>d` to the command."

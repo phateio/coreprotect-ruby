@@ -50,6 +50,24 @@ class Co < Thor
     resume_message
   end
 
+  desc 'purge_orphaned_entities', 'Purge orphaned entities from the database'
+
+  method_option :start, type: :numeric, desc: 'Started at specific entity rowid'
+  method_option :end, type: :numeric, desc: 'Stop at specific entity rowid'
+  method_option :step, type: :numeric, default: 1000, desc: 'Iterate with specific number of rows'
+  method_option :yes, type: :boolean, aliases: '-y', default: false, desc: 'Delete the records without prompt'
+
+  def purge_orphaned_entities
+    before_action_orphaned_entities
+    start_entity.rowid.step(end_entity.rowid, orphaned_limit_param, &purge_orphaned_proc)
+  rescue StandardError, Interrupt => e
+    warn e.message
+  ensure
+    human_count = ActiveSupport::NumberHelper.number_to_human(@purged_row_count)
+    puts I18n.t(:purged_orphaned_entities_message, count: human_count)
+    resume_orphaned_message
+  end
+
   private
 
   def continue?
@@ -174,5 +192,77 @@ class Co < Thor
       human_time: Time.at(@last_block.time)
     }
     puts I18n.t(:resume_notice_message, **params)
+  end
+
+  # Methods for purge_orphaned_entities command
+
+  def before_action_orphaned_entities
+    @purged_row_count = 0
+    @estimated_row_count = number_to_human(end_entity.rowid - start_entity.rowid)
+
+    end_entity.id > start_entity.id || exit
+    continue_orphaned? || exit
+    enable_active_record_logger
+  end
+
+  def continue_orphaned?
+    if yes?
+      show_orphaned_statistics(@estimated_row_count)
+    else
+      answer = prompt_orphaned_question(@estimated_row_count)
+
+      unless answer.casecmp('Y').zero?
+        puts I18n.t(:prompt_canceled_message)
+        return false
+      end
+    end
+    true
+  end
+
+  def start_entity
+    return @start_entity if @start_entity
+    return @last_entity = @start_entity = Entity.first if options[:start].nil?
+
+    @last_entity = @start_entity = Entity.find_by!(rowid: Integer(options[:start]))
+  end
+
+  def end_entity
+    return @end_entity if @end_entity
+
+    @end_entity = if options[:end]
+                    Entity.find_by!(rowid: Integer(options[:end]))
+                  else
+                    Entity.last
+                  end
+  end
+
+  def purge_orphaned_proc
+    proc do |r1|
+      r2 = r1 + orphaned_limit_param
+      orphaned_ids = Entity.orphaned.where(rowid: r1..r2).pluck(:rowid)
+      next if orphaned_ids.empty?
+
+      @last_entity = Entity.find_by(rowid: orphaned_ids.last)
+      @purged_row_count += Entity.where(rowid: orphaned_ids).delete_all
+    end
+  end
+
+  def orphaned_limit_param
+    options[:step]
+  end
+
+  def show_orphaned_statistics(human_count)
+    puts I18n.t(:estimated_orphaned_scan_message, count: human_count)
+  end
+
+  def prompt_orphaned_question(human_count)
+    print format('%<message>s [y/N] ', message: I18n.t(:orphaned_deletion_prompt, count: human_count))
+    $stdin.getc
+  end
+
+  def resume_orphaned_message
+    return if @last_entity.nil?
+
+    puts I18n.t(:resume_orphaned_notice_message, rowid: @last_entity.rowid)
   end
 end
