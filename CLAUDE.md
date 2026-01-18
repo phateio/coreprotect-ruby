@@ -10,6 +10,51 @@ This document provides guidelines for AI assistants (particularly Claude) when w
 - **Purpose**: Database cleanup utility for Minecraft CoreProtect plugin data
 - **Status**: In development - use with caution
 
+## Available Commands
+
+### `co:purge` - Purge old block records
+
+```bash
+bin/thor co:purge [options]
+```
+
+Options:
+- `--start=TIMESTAMP` - Start from specific Unix timestamp
+- `--end=TIMESTAMP` - Stop at specific Unix timestamp (default: 30 days ago)
+- `--world=WORLDS` / `-w` - Specific worlds (comma-separated)
+- `--user=USERS` / `-u` - Specific users (comma-separated)
+- `--action=ACTION` / `-a` - Filter by action (-block, +block, click, kill)
+- `--step=N` - Batch size (default: 1000)
+- `--yes` / `-y` - Skip confirmation prompt
+
+Example:
+```bash
+bin/thor co:purge --world=world_2024,world_2024_nether --start=1718565253
+```
+
+### `co:purge_orphaned_entities` - Clean up orphaned entities
+
+After running `co:purge`, associated entities in `co_entity` table may become orphaned (because `delete_all` bypasses `dependent: :destroy`). This command cleans them up efficiently using batched deletion.
+
+```bash
+bin/thor co:purge_orphaned_entities [options]
+```
+
+Options:
+- `--start=ROWID` - Start from specific entity rowid
+- `--end=ROWID` - Stop at specific entity rowid
+- `--step=N` - Batch size (default: 1000)
+- `--yes` / `-y` - Skip confirmation prompt
+
+Example workflow:
+```bash
+# 1. Purge old blocks
+bin/thor co:purge --world=world_2024 --start=1718565253
+
+# 2. Clean up orphaned entities
+bin/thor co:purge_orphaned_entities -y
+```
+
 ## Critical Prerequisites
 
 ### 1. ALWAYS Verify CONTRIBUTING.md First
