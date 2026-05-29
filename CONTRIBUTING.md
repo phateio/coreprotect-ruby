@@ -1,14 +1,5 @@
 # Contributing Guidelines
 
-> **⚠️ Source of Truth**: [CONTRIBUTING.md](https://denpaio.github.io/CONTRIBUTING.md)  
-> 
-> **MANDATORY: Version Check Before Any Work**:
-> - **ALWAYS verify this file matches the source before making any changes**
-> - If outdated, MUST update to latest version first via PR
-> - To check: `curl -s https://denpaio.github.io/CONTRIBUTING.md | diff CONTRIBUTING.md -`
-> - To sync: `curl -o CONTRIBUTING.md https://denpaio.github.io/CONTRIBUTING.md`
-> - DO NOT modify this file directly - all changes must be made in the source
-> - After source updates, submit a PR to update this repository's copy
 
 ## Code Standards
 
@@ -65,4 +56,4 @@ yamllint .
 
 ---
 
-<!-- For Claude Code: CRITICAL - Before any work, verify CONTRIBUTING.md is up-to-date with source. If outdated, stop and request update via PR first. Strictly follow all standards above. Verify linter compliance before marking tasks complete. -->
+<!-- For Claude Code: Strictly follow all standards above. Verify linter compliance before marking tasks complete. -->
