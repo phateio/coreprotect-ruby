@@ -1,5 +1,7 @@
 # Claude AI Assistant Guidelines
 
+> **Editing this file:** Consider the whole document before changing it — the right section, the right wording, the most essential form for every sentence. **Length limit: 200 lines** — trim or consolidate before adding.
+
 This document provides guidelines for AI assistants (particularly Claude) when working on the coreprotect-ruby project.
 
 ## Project Overview
@@ -141,6 +143,51 @@ bundle exec rspec
 - Always validate timestamps and filters
 - Consider data safety in all changes
 
+### Database Schema (`db/schema.rb`)
+
+`db/schema.rb` is an auto-generated mirror of the live CoreProtect database. It is
+the authoritative schema reference for the models — **do not hand-edit it**. The
+target database is **CoreProtect v24.0** on MariaDB 10.11.x.
+
+- **CoreProtect applies its own `ALTER TABLE` patches on startup** (see its
+  `patch/script/__X_Y_Z` classes, where `X.Y.Z` is the release version). These run
+  as native, blocking `ALGORITHM=COPY` alters. ⚠ On the huge tables (`co_container`
+  ~60GB, `co_item`, `co_block`) a column type change locks the table for the entire
+  copy and **hangs the server** — do NOT just let CoreProtect run it.
+
+  - **Before upgrading**, pre-run the type change with `pt-online-schema-change`
+    (online, no downtime). Each patch guards its alter with a type check
+    (`modifyColumn` → `hasColumnType`), so when CoreProtect starts and finds the
+    column already matches, it **skips** the blocking alter. See `/root/CLAUDE.md`
+    (pt-osc procedure) and `/root/docs/mysql-ssd-migration.md`. For v24.0, run these
+    via pt-osc first, *then* upgrade:
+
+        ALTER TABLE co_container MODIFY metadata MEDIUMBLOB
+        ALTER TABLE co_item      MODIFY data     MEDIUMBLOB
+
+    Small tables (e.g. the v24.0 `co_sign` → `utf8mb4` conversion) are fine to let
+    CoreProtect alter automatically.
+
+  - **After upgrading**, re-sync the schema and commit the diff:
+
+        bundle exec rake db:schema   # dumps the live DB via ActiveRecord::SchemaDumper
+
+- **Host-side customizations** — these are NOT created by CoreProtect; they were
+  added manually on this host for purge performance. Do not "correct" them away:
+  - `co_block.rowid` is `bigint unsigned` (CoreProtect ships signed `bigint`).
+  - `co_block` has extra indexes `data (data, time)` and
+    `user_action (user, action, time)`.
+
+- **Known caveat**: `bundle exec` may fail on this host when `Gemfile.lock` pins
+  gems that are not installed locally (e.g. a yanked `connection_pool 3.0.2`, or
+  `activerecord 7.2.3.1` vs the installed 7.2.3). If so, run `bundle update` first,
+  or dump using the system gems directly (mirrors the `db:schema` task):
+
+      ruby -e 'require "dotenv/load"; require "erb"; require "yaml"; require "active_record"; require "active_record/schema_dumper"; \
+        cfg = YAML.load(ERB.new(File.read("config/database.yml")).result); \
+        ActiveRecord::Base.establish_connection(cfg); \
+        File.open("db/schema.rb", "w:utf-8") { |f| ActiveRecord::SchemaDumper.dump(ActiveRecord::Base.connection_pool, f) }'
+
 ### CLI Interface
 - Maintain consistency with existing Thor command structure
 - Provide clear help messages
@@ -156,6 +203,7 @@ Before marking work complete:
 - [ ] Code is self-documenting
 - [ ] No security vulnerabilities introduced
 - [ ] Database operations are safe and validated
+- [ ] `db/schema.rb` is in sync with the database (re-run `rake db:schema` after CoreProtect upgrades)
 
 ## Resources
 
@@ -163,6 +211,7 @@ Before marking work complete:
 - **README.md**: Project documentation and usage examples
 - **Conventional Commits**: https://www.conventionalcommits.org/
 - **Rubocop**: https://rubocop.org/
+- **CoreProtect** (schema source): https://github.com/PlayPro/CoreProtect (schema patches live in `src/main/java/net/coreprotect/patch/script/`)
 
 ---
 
