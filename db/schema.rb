@@ -154,6 +154,13 @@ ActiveRecord::Schema[7.2].define(version: 0) do
     t.integer "color"
     t.integer "action"
     t.boolean "data"
+    t.string "line_5", limit: 100
+    t.string "line_6", limit: 100
+    t.string "line_7", limit: 100
+    t.string "line_8", limit: 100
+    t.integer "color_secondary"
+    t.integer "waxed", limit: 1, default: 0
+    t.integer "face", limit: 1, default: 0
     t.index ["time"], name: "time"
     t.index ["user", "time"], name: "user"
     t.index ["wid", "x", "z", "time"], name: "wid"
