@@ -4,4 +4,5 @@ host: <%= ENV['COREPROTECT_DATABASE_HOST'] %>
 database: <%= ENV['COREPROTECT_DATABASE_DATABASE'] %>
 username: <%= ENV['COREPROTECT_DATABASE_USERNAME'] %>
 password: <%= ENV['COREPROTECT_DATABASE_PASSWORD'] %>
-init_command: SET max_statement_time = <%= ENV.fetch('TIMEOUT', 1000) %>
+# max_statement_time is in SECONDS on MariaDB (MySQL's max_execution_time was ms)
+init_command: SET max_statement_time = <%= ENV.fetch('TIMEOUT', 10) %>
