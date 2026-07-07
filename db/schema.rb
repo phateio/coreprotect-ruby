@@ -43,10 +43,10 @@ ActiveRecord::Schema[7.2].define(version: 0) do
     t.index ["id"], name: "id"
   end
 
-  create_table "co_chat", primary_key: "rowid", id: :integer, charset: "utf8mb3", collation: "utf8mb3_general_ci", force: :cascade do |t|
+  create_table "co_chat", primary_key: "rowid", id: :integer, charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.integer "time"
     t.integer "user"
-    t.string "message", limit: 1000
+    t.string "message", limit: 16000
     t.integer "wid"
     t.integer "x"
     t.integer "y"
@@ -56,10 +56,10 @@ ActiveRecord::Schema[7.2].define(version: 0) do
     t.index ["wid", "x", "z", "time"], name: "wid"
   end
 
-  create_table "co_command", primary_key: "rowid", id: :integer, charset: "utf8mb3", collation: "utf8mb3_general_ci", force: :cascade do |t|
+  create_table "co_command", primary_key: "rowid", id: :integer, charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.integer "time"
     t.integer "user"
-    t.string "message", limit: 1000
+    t.string "message", limit: 16000
     t.integer "wid"
     t.integer "x"
     t.integer "y"
@@ -152,6 +152,7 @@ ActiveRecord::Schema[7.2].define(version: 0) do
     t.string "line_4", limit: 100
     t.integer "color"
     t.integer "action"
+    t.boolean "data"
     t.index ["time"], name: "time"
     t.index ["user", "time"], name: "user"
     t.index ["wid", "x", "z", "time"], name: "wid"
