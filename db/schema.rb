@@ -17,7 +17,7 @@ ActiveRecord::Schema[7.2].define(version: 0) do
     t.index ["id"], name: "id"
   end
 
-  create_table "co_block", primary_key: "rowid", charset: "utf8mb3", collation: "utf8mb3_general_ci", force: :cascade do |t|
+  create_table "co_block", primary_key: "rowid", id: { type: :bigint, unsigned: true }, charset: "utf8mb3", collation: "utf8mb3_general_ci", force: :cascade do |t|
     t.integer "time"
     t.integer "user"
     t.integer "wid"
@@ -30,7 +30,9 @@ ActiveRecord::Schema[7.2].define(version: 0) do
     t.integer "action"
     t.boolean "rolled_back"
     t.binary "blockdata"
+    t.index ["data", "time"], name: "data"
     t.index ["type", "time"], name: "type"
+    t.index ["user", "action", "time"], name: "user_action"
     t.index ["user", "time"], name: "user"
     t.index ["wid", "x", "z", "time"], name: "wid"
   end
