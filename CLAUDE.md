@@ -34,7 +34,8 @@ is a deliberate alias for the `user` foreign-key column (avoids clashing with th
 - `Entity` (`co_entity`) — `has_one` `Block::Tile`; scope `orphaned` (NOT EXISTS: no
   killed block references the entity). `EntityMap` (`co_entity_map`) — mob-name lookup.
 - `Container` (`co_container`), `Item` (`co_item`, scopes `dropped/picked`) — same shape as `Block`.
-- `User` (`co_user`), `World` (`co_world`), `Session` (`co_session`) — lookups with `has_many`.
+- `User` (`co_user`, `has_many` sessions/blocks/containers) and `World` (`co_world`,
+  `has_many` blocks/containers) — lookup tables. `Session` (`co_session`) — `belongs_to` user only.
 
 **Rake tasks** (`lib/tasks/*.rake`)
 - `db:schema` — dumps `db/schema.rb` from the live DB (see below); also `db:create/migrate/drop/reset`.
