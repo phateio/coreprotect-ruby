@@ -44,7 +44,7 @@ is a deliberate alias for the `user` foreign-key column (avoids clashing with th
 
 **Config**
 - `config/database.yml` — `mysql2`; every value from `COREPROTECT_DATABASE_*` env;
-  `init_command` sets `max_statement_time` from `TIMEOUT` (ms, default 1000).
+  `init_command` sets `max_statement_time` from `TIMEOUT` (seconds on MariaDB, not MySQL's milliseconds).
 - `.env` (copied from `.env.template`, loaded by `dotenv`) — DB host/name/user/password, `TIMEOUT`.
 - Gems: Ruby ≥ 3.1, `activerecord`/`activesupport ~> 7.2`, `mysql2`, `thor`, `i18n`, `dotenv`, `pry`.
 
