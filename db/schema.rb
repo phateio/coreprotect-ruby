@@ -26,7 +26,7 @@ ActiveRecord::Schema[7.2].define(version: 0) do
     t.integer "z"
     t.integer "type"
     t.integer "data"
-    t.binary "meta", size: :medium
+    t.binary "meta"
     t.integer "action"
     t.boolean "rolled_back"
     t.binary "blockdata"
