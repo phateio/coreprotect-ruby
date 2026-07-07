@@ -57,38 +57,13 @@ bin/thor co:purge --world=world_2024 --start=1718565253
 bin/thor co:purge_orphaned_entities -y
 ```
 
-## Critical Prerequisites
-
-### 1. ALWAYS Verify CONTRIBUTING.md First
-
-Before ANY work:
-```bash
-# Check if CONTRIBUTING.md is up-to-date
-curl -s https://denpaio.github.io/CONTRIBUTING.md | diff CONTRIBUTING.md -
-
-# If outdated, update it first
-curl -o CONTRIBUTING.md https://denpaio.github.io/CONTRIBUTING.md
-```
-
-**Source of Truth**: https://denpaio.github.io/CONTRIBUTING.md
-
-### 2. Follow Contribution Standards
-
-All standards in `CONTRIBUTING.md` are MANDATORY:
-- ✅ Code comments in English (or follow existing context)
-- ✅ Follow Rubocop conventions (`.rubocop.yml`)
-- ✅ Use Conventional Commits format
-- ✅ Run linters before committing
-- ✅ Ensure all tests pass
-
 ## Development Workflow
 
 ### Before Making Changes
 
-1. **Verify CONTRIBUTING.md** is current (see above)
-2. **Read relevant code** - Never propose changes to unread code
-3. **Check existing conventions** in the codebase
-4. **Run linters** to understand current state
+1. **Read relevant code** - Never propose changes to unread code
+2. **Check existing conventions** in the codebase
+3. **Run linters** to understand current state
 
 ### During Development
 
@@ -196,7 +171,6 @@ target database is **CoreProtect v24.0** on MariaDB 10.11.x.
 ## Code Review Checklist
 
 Before marking work complete:
-- [ ] CONTRIBUTING.md is up-to-date
 - [ ] All changes follow Rubocop conventions
 - [ ] Tests pass (if applicable)
 - [ ] Commit messages follow Conventional Commits
@@ -207,7 +181,6 @@ Before marking work complete:
 
 ## Resources
 
-- **CONTRIBUTING.md**: Project contribution guidelines (MUST be current)
 - **README.md**: Project documentation and usage examples
 - **Conventional Commits**: https://www.conventionalcommits.org/
 - **Rubocop**: https://rubocop.org/
