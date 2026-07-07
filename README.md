@@ -11,6 +11,10 @@ An utility for purging old data of CoreProtect in production
 * `ruby --version` # ruby 3.1.2p20 (2022-04-12 revision 4491bb740a) [x86_64-linux-gnu]
 * `mysql --version` # mysql Ver 15.1 Distrib 10.11.14-MariaDB, for debian-linux-gnu (x86_64) using EditLine wrapper
 
+## Compatibility
+* Tracks the **CoreProtect v24.0** database schema. `db/schema.rb` mirrors the
+  live database; after upgrading CoreProtect, re-sync it with `bundle exec rake db:schema`.
+
 ## Installation
 
 1. Install Ruby if you haven't yet:
