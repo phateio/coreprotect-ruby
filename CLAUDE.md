@@ -1,149 +1,99 @@
-# Claude AI Assistant Guidelines
+# coreprotect-ruby
 
 > **Editing this file:** Consider the whole document before changing it — the right section, the right wording, the most essential form for every sentence. **Length limit: 200 lines** — trim or consolidate before adding.
 
-This document provides guidelines for AI assistants (particularly Claude) when working on the coreprotect-ruby project.
+Ruby utility for purging old **CoreProtect** (Minecraft logging plugin) data from a
+production MariaDB database. Still in development — purge operations are destructive,
+so validate filters and timestamps carefully.
 
-## Project Overview
+## Architecture
 
-**coreprotect-ruby** is a Ruby utility for purging old CoreProtect data in production environments.
+A thin ActiveRecord layer over the live CoreProtect database, driven by a Thor CLI and
+Rake tasks. No web app; the schema is owned by CoreProtect itself, not by migrations here.
 
-- **Language**: Ruby
-- **Purpose**: Database cleanup utility for Minecraft CoreProtect plugin data
-- **Status**: In development - use with caution
+**Flow:** `bin/thor` / `bin/rake` → bootstrap (`dotenv` → `config/database.yml` → an
+ActiveRecord connection over `mysql2`) → models (`co_*` tables) → MariaDB. Prompts and
+log lines are i18n strings from `config/locales/en.yml`.
 
-## Available Commands
+**Entry points**
+- `co.thor` — `Co < Thor`; defines the `co:purge` and `co:purge_orphaned_entities`
+  commands. Self-bootstrapping: loads env, DB connection, models, and locales at require time.
+- `Thorfile` — bootstrap for `bin/thor` (`dotenv`, AR connect, model autoload path, i18n).
+- `Rakefile` — bootstrap for `bin/rake`; loads models and `Rake.add_rakelib 'lib/tasks'`.
+- `scripts/purge.rb` — standalone `ruby scripts/purge.rb`; ad-hoc bulk delete driven by
+  `ENV['START']` (flow blocks + staled enderman/creeper tiles). Not wired into Thor/Rake.
+- `bin/` — Bundler binstubs (`thor`, `rake`, `pry`, `rubocop`, …).
 
-### `co:purge` - Purge old block records
+**Models** (`models/*.rb`) — all inherit the abstract `ApplicationRecord` and map a
+`co_*` table via `self.table_name`; the primary key is `rowid`. The `uzer` association
+is a deliberate alias for the `user` foreign-key column (avoids clashing with the column name).
+- `Block` (`co_block`) — scopes `removed/placed/clicked/killed/built/flows`; memoized
+  special users `fire/water/lava`; `self.bsearch` binary-searches records by `rowid`/`time`.
+  Nested `Block::Tile` (default scope `killed`) links to `EntityMap` (via `type`) and
+  `Entity` (via `data`, `dependent: :destroy`); scope `staled` = end-world endermen + creepers.
+- `Entity` (`co_entity`) — `has_one` `Block::Tile`; scope `orphaned` (NOT EXISTS: no
+  killed block references the entity). `EntityMap` (`co_entity_map`) — mob-name lookup.
+- `Container` (`co_container`), `Item` (`co_item`, scopes `dropped/picked`) — same shape as `Block`.
+- `User` (`co_user`, `has_many` sessions/blocks/containers) and `World` (`co_world`,
+  `has_many` blocks/containers) — lookup tables. `Session` (`co_session`) — `belongs_to` user only.
+
+**Rake tasks** (`lib/tasks/*.rake`)
+- `db:schema` — dumps `db/schema.rb` from the live DB (see below); also `db:create/migrate/drop/reset`.
+- `block:purge` / `container:purge` / `entity:purge` — older ENV-gated purges
+  (`FORCE`/`DELETE`), batched `delete_all` of rows older than one month. Superseded by `co:purge`.
+- `irb` — pry/irb console with the models loaded.
+
+**Config**
+- `config/database.yml` — `mysql2`; every value from `COREPROTECT_DATABASE_*` env;
+  `init_command` sets `max_statement_time` from `TIMEOUT` (seconds on MariaDB, not MySQL's milliseconds).
+- `.env` (copied from `.env.template`, loaded by `dotenv`) — DB host/name/user/password, `TIMEOUT`.
+- Gems: Ruby ≥ 3.1, `activerecord`/`activesupport ~> 7.2`, `mysql2`, `thor`, `i18n`, `dotenv`, `pry`.
+
+## Commands
+
+### `co:purge` — purge old block records
 
 ```bash
 bin/thor co:purge [options]
 ```
 
 Options:
-- `--start=TIMESTAMP` - Start from specific Unix timestamp
-- `--end=TIMESTAMP` - Stop at specific Unix timestamp (default: 30 days ago)
-- `--world=WORLDS` / `-w` - Specific worlds (comma-separated)
-- `--user=USERS` / `-u` - Specific users (comma-separated)
-- `--action=ACTION` / `-a` - Filter by action (-block, +block, click, kill)
-- `--step=N` - Batch size (default: 1000)
-- `--yes` / `-y` - Skip confirmation prompt
+- `--start=TIMESTAMP` — start from a specific Unix timestamp
+- `--end=TIMESTAMP` — stop at a specific Unix timestamp (default: 30 days ago)
+- `--world=WORLDS` / `-w` — specific worlds (comma-separated)
+- `--user=USERS` / `-u` — specific users (comma-separated)
+- `--action=ACTION` / `-a` — filter by action (`-block`, `+block`, `click`, `kill`)
+- `--step=N` — batch size (default: 1000)
+- `--yes` / `-y` — skip confirmation prompt
 
-Example:
 ```bash
 bin/thor co:purge --world=world_2024,world_2024_nether --start=1718565253
 ```
 
-### `co:purge_orphaned_entities` - Clean up orphaned entities
+### `co:purge_orphaned_entities` — clean up orphaned entities
 
-After running `co:purge`, associated entities in `co_entity` table may become orphaned (because `delete_all` bypasses `dependent: :destroy`). This command cleans them up efficiently using batched deletion.
+After `co:purge`, entities in `co_entity` may become orphaned (because `delete_all`
+bypasses `dependent: :destroy`). This command removes entities that no killed block
+still references, using batched deletion.
 
 ```bash
 bin/thor co:purge_orphaned_entities [options]
 ```
 
 Options:
-- `--start=ROWID` - Start from specific entity rowid
-- `--end=ROWID` - Stop at specific entity rowid
-- `--step=N` - Batch size (default: 1000)
-- `--yes` / `-y` - Skip confirmation prompt
+- `--start=ROWID` — start from a specific entity rowid
+- `--end=ROWID` — stop at a specific entity rowid
+- `--step=N` — batch size (default: 1000)
+- `--yes` / `-y` — skip confirmation prompt
 
-Example workflow:
 ```bash
 # 1. Purge old blocks
 bin/thor co:purge --world=world_2024 --start=1718565253
-
 # 2. Clean up orphaned entities
 bin/thor co:purge_orphaned_entities -y
 ```
 
-## Critical Prerequisites
-
-### 1. ALWAYS Verify CONTRIBUTING.md First
-
-Before ANY work:
-```bash
-# Check if CONTRIBUTING.md is up-to-date
-curl -s https://denpaio.github.io/CONTRIBUTING.md | diff CONTRIBUTING.md -
-
-# If outdated, update it first
-curl -o CONTRIBUTING.md https://denpaio.github.io/CONTRIBUTING.md
-```
-
-**Source of Truth**: https://denpaio.github.io/CONTRIBUTING.md
-
-### 2. Follow Contribution Standards
-
-All standards in `CONTRIBUTING.md` are MANDATORY:
-- ✅ Code comments in English (or follow existing context)
-- ✅ Follow Rubocop conventions (`.rubocop.yml`)
-- ✅ Use Conventional Commits format
-- ✅ Run linters before committing
-- ✅ Ensure all tests pass
-
-## Development Workflow
-
-### Before Making Changes
-
-1. **Verify CONTRIBUTING.md** is current (see above)
-2. **Read relevant code** - Never propose changes to unread code
-3. **Check existing conventions** in the codebase
-4. **Run linters** to understand current state
-
-### During Development
-
-```bash
-# Run Rubocop with auto-fix
-rubocop -A
-
-# Run tests (if available)
-bundle exec rake test
-# or
-bundle exec rspec
-```
-
-### Before Committing
-
-1. **Lint the code**:
-   ```bash
-   rubocop -A
-   ```
-
-2. **Verify tests pass**
-
-3. **Use Conventional Commit format**:
-   ```
-   type(scope): description
-
-   Examples:
-   feat(purge): add support for filtering by action type
-   fix(database): resolve connection timeout issue
-   docs(readme): update installation instructions
-   refactor(cli): simplify argument parsing
-   ```
-
-### Commit Types
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes (formatting, etc.)
-- `refactor`: Code refactoring
-- `test`: Adding or updating tests
-- `chore`: Maintenance tasks
-
-## Project-Specific Guidelines
-
-### Ruby Standards
-- Follow Rubocop rules defined in `.rubocop.yml`
-- Prefer self-documenting code over comments
-- Use Ruby idioms and best practices
-
-### Database Operations
-- Be extremely careful with purge operations
-- Always validate timestamps and filters
-- Consider data safety in all changes
-
-### Database Schema (`db/schema.rb`)
+## Database Schema (`db/schema.rb`)
 
 `db/schema.rb` is an auto-generated mirror of the live CoreProtect database. It is
 the authoritative schema reference for the models — **do not hand-edit it**. The
@@ -168,7 +118,8 @@ target database is **CoreProtect v24.0** on MariaDB 10.11.x.
     Small tables (e.g. the v24.0 `co_sign` → `utf8mb4` conversion) are fine to let
     CoreProtect alter automatically.
 
-  - **After upgrading**, re-sync the schema and commit the diff:
+  - **After upgrading**, re-sync the schema and commit the diff (keeps `db/schema.rb`
+    in sync with the database — the one project-specific review gate):
 
         bundle exec rake db:schema   # dumps the live DB via ActiveRecord::SchemaDumper
 
@@ -188,31 +139,8 @@ target database is **CoreProtect v24.0** on MariaDB 10.11.x.
         ActiveRecord::Base.establish_connection(cfg); \
         File.open("db/schema.rb", "w:utf-8") { |f| ActiveRecord::SchemaDumper.dump(ActiveRecord::Base.connection_pool, f) }'
 
-### CLI Interface
-- Maintain consistency with existing Thor command structure
-- Provide clear help messages
-- Validate user input thoroughly
-
-## Code Review Checklist
-
-Before marking work complete:
-- [ ] CONTRIBUTING.md is up-to-date
-- [ ] All changes follow Rubocop conventions
-- [ ] Tests pass (if applicable)
-- [ ] Commit messages follow Conventional Commits
-- [ ] Code is self-documenting
-- [ ] No security vulnerabilities introduced
-- [ ] Database operations are safe and validated
-- [ ] `db/schema.rb` is in sync with the database (re-run `rake db:schema` after CoreProtect upgrades)
-
 ## Resources
 
-- **CONTRIBUTING.md**: Project contribution guidelines (MUST be current)
-- **README.md**: Project documentation and usage examples
-- **Conventional Commits**: https://www.conventionalcommits.org/
-- **Rubocop**: https://rubocop.org/
-- **CoreProtect** (schema source): https://github.com/PlayPro/CoreProtect (schema patches live in `src/main/java/net/coreprotect/patch/script/`)
-
----
-
-**Remember**: Quality over speed. Always verify standards compliance before completing any task.
+- **README.md** — usage and examples.
+- **CoreProtect** (schema source): https://github.com/PlayPro/CoreProtect (schema patches
+  live in `src/main/java/net/coreprotect/patch/script/`).
