@@ -168,7 +168,7 @@ ActiveRecord::Schema[7.2].define(version: 0) do
 
   create_table "co_skull", primary_key: "rowid", id: :integer, charset: "utf8mb3", collation: "utf8mb3_general_ci", force: :cascade do |t|
     t.integer "time"
-    t.string "owner", limit: 64
+    t.string "owner"
   end
 
   create_table "co_user", primary_key: "rowid", id: :integer, charset: "utf8mb3", collation: "utf8mb3_general_ci", force: :cascade do |t|
