@@ -114,6 +114,7 @@ ActiveRecord::Schema[7.2].define(version: 0) do
     t.binary "data"
     t.integer "amount"
     t.boolean "action"
+    t.boolean "rolled_back", default: false
     t.index ["type", "time"], name: "type"
     t.index ["user", "time"], name: "user"
     t.index ["wid", "x", "z", "time"], name: "wid"
