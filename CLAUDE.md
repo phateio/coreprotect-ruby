@@ -1,5 +1,7 @@
 # Claude AI Assistant Guidelines
 
+> **Editing this file:** Consider the whole document before changing it — the right section, the right wording, the most essential form for every sentence. **Length limit: 200 lines** — trim or consolidate before adding.
+
 This document provides guidelines for AI assistants (particularly Claude) when working on the coreprotect-ruby project.
 
 ## Project Overview
