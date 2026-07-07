@@ -79,7 +79,7 @@ ActiveRecord::Schema[7.2].define(version: 0) do
     t.integer "type"
     t.integer "data"
     t.integer "amount"
-    t.binary "metadata"
+    t.binary "metadata", size: :medium
     t.integer "action"
     t.boolean "rolled_back"
     t.index ["type", "time"], name: "type"
@@ -111,7 +111,7 @@ ActiveRecord::Schema[7.2].define(version: 0) do
     t.integer "y"
     t.integer "z"
     t.integer "type"
-    t.binary "data"
+    t.binary "data", size: :medium
     t.integer "amount"
     t.boolean "action"
     t.boolean "rolled_back", default: false
@@ -140,7 +140,7 @@ ActiveRecord::Schema[7.2].define(version: 0) do
     t.index ["wid", "x", "z", "time"], name: "wid"
   end
 
-  create_table "co_sign", primary_key: "rowid", id: :integer, charset: "utf8mb3", collation: "utf8mb3_general_ci", force: :cascade do |t|
+  create_table "co_sign", primary_key: "rowid", id: :integer, charset: "utf8mb4", collation: "utf8mb4_general_ci", force: :cascade do |t|
     t.integer "time"
     t.integer "user"
     t.integer "wid"
