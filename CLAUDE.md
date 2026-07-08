@@ -12,8 +12,8 @@ A thin ActiveRecord layer over the live CoreProtect database, driven by a Thor C
 Rake tasks. No web app; the schema is owned by CoreProtect itself, not by migrations here.
 
 **Flow:** `bin/thor` / `bin/rake` → bootstrap (`dotenv` → `config/database.yml` → an
-ActiveRecord connection over `mysql2`) → models (`co_*` tables) → MariaDB. Prompts and
-log lines are i18n strings from `config/locales/en.yml`.
+ActiveRecord connection over `mysql2`) → models (`co_*` tables) → MariaDB. Log lines
+are i18n strings from `config/locales/en.yml`.
 
 **Entry points**
 - `co.thor` — `Co < Thor`; defines the `co:purge`, `co:purge_orphaned_entities`, and `co:trim`
@@ -64,7 +64,7 @@ Options:
 - `--user=USERS` / `-u` — specific users (comma-separated)
 - `--action=ACTION` / `-a` — filter by action (`-block`, `+block`, `click`, `kill`)
 - `--step=N` — batch size (default: 1000)
-- `--yes` / `-y` — skip confirmation prompt
+- `--dry-run` — report the rows without deleting
 
 ```bash
 bin/thor co:purge --world=world_2024,world_2024_nether --start=1718565253
@@ -84,13 +84,13 @@ Options:
 - `--start=ROWID` — start from a specific entity rowid
 - `--end=ROWID` — stop at a specific entity rowid
 - `--step=N` — batch size (default: 1000)
-- `--yes` / `-y` — skip confirmation prompt
+- `--dry-run` — report the orphaned entities without deleting
 
 ```bash
 # 1. Purge old blocks
 bin/thor co:purge --world=world_2024 --start=1718565253
 # 2. Clean up orphaned entities
-bin/thor co:purge_orphaned_entities -y
+bin/thor co:purge_orphaned_entities
 ```
 
 ### `co:trim` — trim hot coordinates in `co_block`
@@ -131,11 +131,10 @@ Options:
   history-heavy coordinates)
 - `--dry-run` — report hot coordinates and planned deletions without deleting and without
   saving the checkpoint
-- `--yes` / `-y` — skip confirmation prompt
 
 ```bash
 # Typical cron usage: daily incremental trim from the last checkpoint
-bin/thor co:trim -y
+bin/thor co:trim
 ```
 
 ## Database Schema (`db/schema.rb`)
