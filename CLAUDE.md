@@ -16,7 +16,7 @@ ActiveRecord connection over `mysql2`) → models (`co_*` tables) → MariaDB. P
 log lines are i18n strings from `config/locales/en.yml`.
 
 **Entry points**
-- `co.thor` — `Co < Thor`; defines the `co:purge` and `co:purge_orphaned_entities`
+- `co.thor` — `Co < Thor`; defines the `co:purge`, `co:purge_orphaned_entities`, and `co:trim`
   commands. Self-bootstrapping: loads env, DB connection, models, and locales at require time.
 - `Thorfile` — bootstrap for `bin/thor` (`dotenv`, AR connect, model autoload path, i18n).
 - `Rakefile` — bootstrap for `bin/rake`; loads models and `Rake.add_rakelib 'lib/tasks'`.
@@ -91,6 +91,51 @@ Options:
 bin/thor co:purge --world=world_2024 --start=1718565253
 # 2. Clean up orphaned entities
 bin/thor co:purge_orphaned_entities -y
+```
+
+### `co:trim` — trim hot coordinates in `co_block`
+
+Incremental "hot coordinate" trim. Automated machines (auto tree farms, gravity/TNT
+machines) write thousands of rows at fixed coordinates; on tree growth CoreProtect's
+`whoPlaced()` SELECT (forced `USE INDEX(wid)`; the index lacks `y`) must scan the whole
+accumulated column, stalling CoreProtect's single-threaded consumer. `co:trim` keeps the
+invariant "any coordinate gaining ≥ threshold new rows in a scan window is trimmed to its
+newest N rows per `(wid, x, y, z, action)`"; quiet coordinates (old buildings) are never
+touched. Complements `co:purge` — purge deletes by age, trim caps per-coordinate
+accumulation while preserving old history.
+
+Scans rows added since the last checkpoint (primary-key range scan) in 1,000,000-rowid
+segments: per segment, `GROUP BY (wid, x, y, z, action) HAVING COUNT(*) >= threshold`
+finds hot keys; each hot key keeps its newest `--keep` rows (bounded by the segment's
+upper rowid) and the rest are deleted by primary key in `--step`-sized slices. After each
+segment the checkpoint is saved to `db/trim_state.yml` (gitignored), so interrupted runs
+resume automatically.
+
+```bash
+bin/thor co:trim [options]
+```
+
+Options:
+- `--start=ROWID` — scan from this rowid (overrides the checkpoint; required on the very
+  first run, when no checkpoint file exists)
+- `--end=ROWID` — stop at this rowid (default: current max)
+- `--keep=N` — newest rows to keep per hot coordinate (default: 7)
+- `--threshold=N` — new rows per coordinate within the window to flag it as hot
+  (default: 100; must be ≥ `--keep`)
+- `--action=LIST` / `-a` — actions to consider (default: `-block,+block,click`; `kill` is
+  excluded by default because deleting kill rows orphans `co_entity` rows — if you include
+  it, run `co:purge_orphaned_entities` afterwards; the command prints a reminder)
+- `--step=N` — delete batch size (default: 1000)
+- `--timeout=N` — session `max_statement_time` in seconds for this run (default: 600;
+  overrides the `.env` `TIMEOUT` of 10 s, which would kill the long scans/plucks on
+  history-heavy coordinates)
+- `--dry-run` — report hot coordinates and planned deletions without deleting and without
+  saving the checkpoint
+- `--yes` / `-y` — skip confirmation prompt
+
+```bash
+# Typical cron usage: daily incremental trim from the last checkpoint
+bin/thor co:trim -y
 ```
 
 ## Database Schema (`db/schema.rb`)
