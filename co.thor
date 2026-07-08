@@ -36,12 +36,14 @@ class Co < Thor
   desc 'purge', 'Purge blocks from the database'
 
   method_option :action, type: :string, aliases: '-a', desc: 'Specific actions (separated by commas)'
+  method_option :dry_run, type: :boolean, default: false, desc: 'Report the rows without deleting'
   method_option :end, type: :numeric, desc: 'Stop at specific timestamp'
   method_option :start, type: :numeric, desc: 'Started at specific timestamp'
   method_option :step, type: :numeric, default: 1000, desc: 'Iterate with specific number of rows'
+  method_option :timeout, type: :numeric, default: 600,
+                          desc: 'Session max_statement_time in seconds (overrides TIMEOUT for this run)'
   method_option :user, type: :string, aliases: '-u', desc: 'Specific users (separated by commas)'
   method_option :world, type: :string, aliases: '-w', desc: 'Specific worlds (separated by commas)'
-  method_option :yes, type: :boolean, aliases: '-y', default: false, desc: 'Delete the records without prompt'
 
   def purge
     before_action
@@ -50,16 +52,19 @@ class Co < Thor
     warn e.message
   ensure
     human_count = ActiveSupport::NumberHelper.number_to_human(@purged_row_count)
-    puts I18n.t(:purged_rows_message, count: human_count)
+    message_key = options[:dry_run] ? :would_purge_rows_message : :purged_rows_message
+    puts I18n.t(message_key, count: human_count)
     resume_message
   end
 
   desc 'purge_orphaned_entities', 'Purge orphaned entities from the database'
 
-  method_option :start, type: :numeric, desc: 'Started at specific entity rowid'
+  method_option :dry_run, type: :boolean, default: false, desc: 'Report the orphaned entities without deleting'
   method_option :end, type: :numeric, desc: 'Stop at specific entity rowid'
+  method_option :start, type: :numeric, desc: 'Started at specific entity rowid'
   method_option :step, type: :numeric, default: 1000, desc: 'Iterate with specific number of rows'
-  method_option :yes, type: :boolean, aliases: '-y', default: false, desc: 'Delete the records without prompt'
+  method_option :timeout, type: :numeric, default: 600,
+                          desc: 'Session max_statement_time in seconds (overrides TIMEOUT for this run)'
 
   def purge_orphaned_entities
     before_action_orphaned_entities
@@ -68,7 +73,8 @@ class Co < Thor
     warn e.message
   ensure
     human_count = ActiveSupport::NumberHelper.number_to_human(@purged_row_count)
-    puts I18n.t(:purged_orphaned_entities_message, count: human_count)
+    message_key = options[:dry_run] ? :would_purge_orphaned_entities_message : :purged_orphaned_entities_message
+    puts I18n.t(message_key, count: human_count)
     resume_orphaned_message
   end
 
@@ -85,7 +91,6 @@ class Co < Thor
                             desc: 'New rows per coordinate within the scan window to flag it as hot'
   method_option :timeout, type: :numeric, default: 600,
                           desc: 'Session max_statement_time in seconds (overrides TIMEOUT for this run)'
-  method_option :yes, type: :boolean, aliases: '-y', default: false, desc: 'Trim the records without prompt'
 
   def trim
     before_action_trim
@@ -101,34 +106,20 @@ class Co < Thor
 
   private
 
-  def continue?
-    confirm?(@estimated_row_count, :estimated_record_deletion_message, :record_deletion_prompt)
-  end
-
-  def confirm?(count, statistics_key, prompt_key)
-    if yes?
-      puts I18n.t(statistics_key, count: count)
-      return true
-    end
-
-    print format('%<message>s [y/N] ', message: I18n.t(prompt_key, count: count))
-    return true if $stdin.getc.casecmp('Y').zero?
-
-    puts I18n.t(:prompt_canceled_message)
-    false
-  end
-
-  def yes?
-    options[:yes]
-  end
-
   def before_action
     @purged_row_count = 0
-    @estimated_row_count = number_to_human(end_block.rowid - start_block.rowid)
-
     end_block.id > start_block.id || exit
-    continue? || exit
-    enable_active_record_logger
+    show_estimate(:estimated_record_deletion_message, end_block.rowid - start_block.rowid)
+    apply_session_timeout
+    enable_active_record_logger unless options[:dry_run]
+  end
+
+  def show_estimate(message_key, count)
+    puts I18n.t(message_key, count: number_to_human(count))
+  end
+
+  def apply_session_timeout
+    ActiveRecord::Base.connection.execute("SET SESSION max_statement_time = #{Integer(options[:timeout])}")
   end
 
   def start_block
@@ -150,12 +141,12 @@ class Co < Thor
 
   def purge_proc
     proc do |r1|
-      r2 = r1 + limit_param
-      @peek_block = Block.where(block_options).where(rowid: r1..r2).first
+      scope = Block.where(block_options).where(rowid: r1..(r1 + limit_param - 1))
+      @peek_block = scope.first
       next if @peek_block.nil?
 
       @last_block = @peek_block
-      @purged_row_count += Block.where(block_options).where(rowid: r1..r2).delete_all
+      @purged_row_count += options[:dry_run] ? scope.count : scope.delete_all
     end
   end
 
@@ -213,15 +204,10 @@ class Co < Thor
 
   def before_action_orphaned_entities
     @purged_row_count = 0
-    @estimated_row_count = number_to_human(end_entity.rowid - start_entity.rowid)
-
     end_entity.id > start_entity.id || exit
-    continue_orphaned? || exit
-    enable_active_record_logger
-  end
-
-  def continue_orphaned?
-    confirm?(@estimated_row_count, :estimated_orphaned_scan_message, :orphaned_deletion_prompt)
+    show_estimate(:estimated_orphaned_scan_message, end_entity.rowid - start_entity.rowid)
+    apply_session_timeout
+    enable_active_record_logger unless options[:dry_run]
   end
 
   def start_entity
@@ -243,12 +229,12 @@ class Co < Thor
 
   def purge_orphaned_proc
     proc do |r1|
-      r2 = r1 + orphaned_limit_param
+      r2 = r1 + orphaned_limit_param - 1
       orphaned_ids = Entity.orphaned.where(rowid: r1..r2).pluck(:rowid)
       next if orphaned_ids.empty?
 
       @last_entity = Entity.find_by(rowid: orphaned_ids.last)
-      @purged_row_count += Entity.where(rowid: orphaned_ids).delete_all
+      @purged_row_count += options[:dry_run] ? orphaned_ids.size : Entity.where(rowid: orphaned_ids).delete_all
     end
   end
 
@@ -268,14 +254,9 @@ class Co < Thor
     @trimmed_row_count = 0
     validate_trim_options
     trim_nothing_to_scan if trim_to < trim_from
-    @estimated_row_count = number_to_human(trim_to - trim_from)
-    continue_trim? || exit
-    apply_trim_timeout
+    show_estimate(:estimated_trim_scan_message, trim_to - trim_from)
+    apply_session_timeout
     enable_active_record_logger unless options[:dry_run]
-  end
-
-  def apply_trim_timeout
-    ActiveRecord::Base.connection.execute("SET SESSION max_statement_time = #{Integer(options[:timeout])}")
   end
 
   def validate_trim_options
@@ -323,15 +304,6 @@ class Co < Thor
 
     @last_checkpoint = rowid
     File.write(TRIM_STATE_FILE, { 'rowid' => rowid }.to_yaml)
-  end
-
-  def continue_trim?
-    if options[:dry_run]
-      puts I18n.t(:estimated_trim_scan_message, count: @estimated_row_count)
-      return true
-    end
-
-    confirm?(@estimated_row_count, :estimated_trim_scan_message, :trim_scan_prompt)
   end
 
   def trim_proc

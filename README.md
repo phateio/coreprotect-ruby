@@ -46,14 +46,17 @@ Usage:
   thor co:purge
 
 Options:
-  -a, [--action=ACTION]    # Specific actions (separated by commas)
-      [--end=N]            # Stop at specific timestamp
-      [--start=N]          # Started at specific timestamp
-      [--step=N]           # Iterate with specific number of rows
-                           # Default: 1000
-  -u, [--user=USER]        # Specific users (separated by commas)
-  -w, [--world=WORLD]      # Specific worlds (separated by commas)
-  -y, [--yes], [--no-yes]  # Delete the records without prompt
+  -a, [--action=ACTION]                              # Specific actions (separated by commas)
+      [--dry-run], [--no-dry-run], [--skip-dry-run]  # Report the rows without deleting
+                                                     # Default: false
+      [--end=N]                                      # Stop at specific timestamp
+      [--start=N]                                    # Started at specific timestamp
+      [--step=N]                                     # Iterate with specific number of rows
+                                                     # Default: 1000
+      [--timeout=N]                                  # Session max_statement_time in seconds (overrides TIMEOUT for this run)
+                                                     # Default: 600
+  -u, [--user=USER]                                  # Specific users (separated by commas)
+  -w, [--world=WORLD]                                # Specific worlds (separated by commas)
 
 Purge blocks from the database
 ```
@@ -76,9 +79,9 @@ Purge blocks from the database
 
        $ bin/thor co:purge --world=world_2018
 
-- Delete blocks without prompt:
+- Preview the deletion without deleting anything:
 
-       $ bin/thor co:purge --yes
+       $ bin/thor co:purge --dry-run
 
 ## Contributing
 Bug reports and pull requests are welcome.
