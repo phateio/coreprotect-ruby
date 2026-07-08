@@ -53,6 +53,8 @@ Options:
       [--start=N]                                    # Started at specific timestamp
       [--step=N]                                     # Iterate with specific number of rows
                                                      # Default: 1000
+      [--timeout=N]                                  # Session max_statement_time in seconds (overrides TIMEOUT for this run)
+                                                     # Default: 600
   -u, [--user=USER]                                  # Specific users (separated by commas)
   -w, [--world=WORLD]                                # Specific worlds (separated by commas)
 

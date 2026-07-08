@@ -51,6 +51,11 @@ is a deliberate alias for the `user` foreign-key column (avoids clashing with th
 
 ## Commands
 
+All three commands accept `--timeout=N` — session `max_statement_time` in seconds for the
+run (default: 600), overriding the `.env` `TIMEOUT` of 10 s, which would kill statements
+that run long on cold caches (the orphaned-entities `NOT EXISTS` batches were observed
+being killed at 10 s) or on history-heavy coordinates (trim's scans/plucks).
+
 ### `co:purge` — purge old block records
 
 ```bash
@@ -64,6 +69,7 @@ Options:
 - `--user=USERS` / `-u` — specific users (comma-separated)
 - `--action=ACTION` / `-a` — filter by action (`-block`, `+block`, `click`, `kill`)
 - `--step=N` — batch size (default: 1000)
+- `--timeout=N` — session `max_statement_time` in seconds for this run (default: 600)
 - `--dry-run` — report the rows without deleting
 
 ```bash
@@ -84,6 +90,7 @@ Options:
 - `--start=ROWID` — start from a specific entity rowid
 - `--end=ROWID` — stop at a specific entity rowid
 - `--step=N` — batch size (default: 1000)
+- `--timeout=N` — session `max_statement_time` in seconds for this run (default: 600)
 - `--dry-run` — report the orphaned entities without deleting
 
 ```bash
@@ -126,9 +133,7 @@ Options:
   excluded by default because deleting kill rows orphans `co_entity` rows — if you include
   it, run `co:purge_orphaned_entities` afterwards; the command prints a reminder)
 - `--step=N` — delete batch size (default: 1000)
-- `--timeout=N` — session `max_statement_time` in seconds for this run (default: 600;
-  overrides the `.env` `TIMEOUT` of 10 s, which would kill the long scans/plucks on
-  history-heavy coordinates)
+- `--timeout=N` — session `max_statement_time` in seconds for this run (default: 600)
 - `--dry-run` — report hot coordinates and planned deletions without deleting and without
   saving the checkpoint
 

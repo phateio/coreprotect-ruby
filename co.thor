@@ -40,6 +40,8 @@ class Co < Thor
   method_option :end, type: :numeric, desc: 'Stop at specific timestamp'
   method_option :start, type: :numeric, desc: 'Started at specific timestamp'
   method_option :step, type: :numeric, default: 1000, desc: 'Iterate with specific number of rows'
+  method_option :timeout, type: :numeric, default: 600,
+                          desc: 'Session max_statement_time in seconds (overrides TIMEOUT for this run)'
   method_option :user, type: :string, aliases: '-u', desc: 'Specific users (separated by commas)'
   method_option :world, type: :string, aliases: '-w', desc: 'Specific worlds (separated by commas)'
 
@@ -61,6 +63,8 @@ class Co < Thor
   method_option :end, type: :numeric, desc: 'Stop at specific entity rowid'
   method_option :start, type: :numeric, desc: 'Started at specific entity rowid'
   method_option :step, type: :numeric, default: 1000, desc: 'Iterate with specific number of rows'
+  method_option :timeout, type: :numeric, default: 600,
+                          desc: 'Session max_statement_time in seconds (overrides TIMEOUT for this run)'
 
   def purge_orphaned_entities
     before_action_orphaned_entities
@@ -105,8 +109,17 @@ class Co < Thor
   def before_action
     @purged_row_count = 0
     end_block.id > start_block.id || exit
-    puts I18n.t(:estimated_record_deletion_message, count: number_to_human(end_block.rowid - start_block.rowid))
+    show_estimate(:estimated_record_deletion_message, end_block.rowid - start_block.rowid)
+    apply_session_timeout
     enable_active_record_logger unless options[:dry_run]
+  end
+
+  def show_estimate(message_key, count)
+    puts I18n.t(message_key, count: number_to_human(count))
+  end
+
+  def apply_session_timeout
+    ActiveRecord::Base.connection.execute("SET SESSION max_statement_time = #{Integer(options[:timeout])}")
   end
 
   def start_block
@@ -192,7 +205,8 @@ class Co < Thor
   def before_action_orphaned_entities
     @purged_row_count = 0
     end_entity.id > start_entity.id || exit
-    puts I18n.t(:estimated_orphaned_scan_message, count: number_to_human(end_entity.rowid - start_entity.rowid))
+    show_estimate(:estimated_orphaned_scan_message, end_entity.rowid - start_entity.rowid)
+    apply_session_timeout
     enable_active_record_logger unless options[:dry_run]
   end
 
@@ -240,13 +254,9 @@ class Co < Thor
     @trimmed_row_count = 0
     validate_trim_options
     trim_nothing_to_scan if trim_to < trim_from
-    puts I18n.t(:estimated_trim_scan_message, count: number_to_human(trim_to - trim_from))
-    apply_trim_timeout
+    show_estimate(:estimated_trim_scan_message, trim_to - trim_from)
+    apply_session_timeout
     enable_active_record_logger unless options[:dry_run]
-  end
-
-  def apply_trim_timeout
-    ActiveRecord::Base.connection.execute("SET SESSION max_statement_time = #{Integer(options[:timeout])}")
   end
 
   def validate_trim_options
