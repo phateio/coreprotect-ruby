@@ -309,7 +309,13 @@ class Co < Thor
   def trim_proc
     proc do |r1|
       r2 = [r1 + TRIM_SEGMENT_SIZE - 1, trim_to].min
-      hot_coordinates(r1, r2).each_key { |key| trim_coordinate(key, r2) }
+      hot_coordinates(r1, r2).each_key do |key|
+        trim_coordinate(key, r2)
+      rescue ActiveRecord::StatementInvalid => e
+        # One history-heavy coordinate must never abort the whole run and forfeit
+        # the segment's checkpoint; skip it and carry on with the rest.
+        warn I18n.t(:trim_coordinate_skipped_message, error: e.message, **coordinate_label(key))
+      end
       save_trim_state(r2) unless options[:dry_run]
     end
   end
@@ -321,50 +327,79 @@ class Co < Thor
          .count
   end
 
+  # Trim one hot coordinate to its newest `--keep` rows. The cutoff (the keep-th
+  # newest rowid) is located through the (wid, x, z, time) index in time order, so
+  # it costs O(keep) row look-ups instead of sorting the coordinate's entire
+  # history by rowid -- that unindexed sort is what made million-row columns exceed
+  # max_statement_time and abort the run. Everything older than the cutoff is then
+  # deleted in bounded `--step` slices, so no single statement scales with the
+  # backlog either.
   def trim_coordinate(key, upper_rowid)
-    rowids = coordinate_rowids(key, upper_rowid)
-    victim_ids = rowids.drop(trim_keep)
-    return if victim_ids.empty?
+    cutoff = coordinate_cutoff(key, upper_rowid)
+    return if cutoff.nil?
 
-    return report_planned_trim(key, rowids.size, victim_ids.size) if options[:dry_run]
+    return report_planned_trim(key, cutoff) if options[:dry_run]
 
-    puts trim_coordinate_message(key, rowids.size, victim_ids.size)
-    trim_victims(victim_ids)
+    trimmed = delete_below(key, cutoff)
+    return if trimmed.zero?
+
+    @trimmed_row_count += trimmed
+    puts trim_coordinate_message(key, trimmed + trim_keep, trimmed)
   end
 
-  def coordinate_rowids(key, upper_rowid)
-    wid, x, y, z, action = key
-    Block.where(wid: wid, x: x, y: y, z: z, action: action)
-         .where(rowid: ..upper_rowid).order(rowid: :desc).pluck(:rowid)
+  def coordinate_cutoff(key, upper_rowid)
+    Block.where(coordinate_scope(key)).where(rowid: ..upper_rowid)
+         .order(time: :desc).offset(trim_keep - 1).limit(1).pick(:rowid)
+  end
+
+  def delete_below(key, cutoff)
+    scope = Block.where(coordinate_scope(key)).where(rowid: ...cutoff)
+    trimmed = 0
+    loop do
+      ids = scope.limit(limit_param).pluck(:rowid)
+      break if ids.empty?
+
+      trimmed += Block.where(rowid: ids).delete_all
+      break if ids.size < limit_param
+    end
+    trimmed
   end
 
   # A dry run deletes nothing, so a coordinate that stays hot across segments is
-  # re-plucked in full each time; count only the victims not already reported for
-  # it, so the dry-run total matches what a real (deleting) run would remove.
-  def report_planned_trim(key, total, cumulative_victims)
-    victim_count = cumulative_victims - planned_victims[key]
+  # re-counted each time (its cutoff climbs as the segment's upper rowid grows);
+  # report only the victims not already reported for it, so the dry-run total
+  # matches what a real (deleting) run would remove.
+  def report_planned_trim(key, cutoff)
+    cumulative_victims = victim_count(key, cutoff)
+    victims = cumulative_victims - planned_victims[key]
     planned_victims[key] = cumulative_victims
-    return if victim_count.zero?
+    return if victims.zero?
 
-    puts trim_coordinate_message(key, total, victim_count)
-    @trimmed_row_count += victim_count
+    @trimmed_row_count += victims
+    puts trim_coordinate_message(key, cumulative_victims + trim_keep, victims)
+  end
+
+  def victim_count(key, cutoff)
+    Block.where(coordinate_scope(key)).where(rowid: ...cutoff).count
   end
 
   def planned_victims
     @planned_victims ||= Hash.new(0)
   end
 
-  def trim_coordinate_message(key, total, victim_count)
+  def coordinate_scope(key)
     wid, x, y, z, action = key
-    message_key = options[:dry_run] ? :trim_dry_run_coordinate_message : :trim_coordinate_message
-    I18n.t(message_key, count: victim_count, total: total, world: world_name(wid),
-                        x: x, y: y, z: z, action: ACTIONS.key(action), keep: trim_keep)
+    { wid: wid, x: x, y: y, z: z, action: action }
   end
 
-  def trim_victims(victim_ids)
-    victim_ids.each_slice(limit_param) do |ids|
-      @trimmed_row_count += Block.where(rowid: ids).delete_all
-    end
+  def coordinate_label(key)
+    wid, x, y, z, action = key
+    { world: world_name(wid), x: x, y: y, z: z, action: ACTIONS.key(action) }
+  end
+
+  def trim_coordinate_message(key, total, victim_count)
+    message_key = options[:dry_run] ? :trim_dry_run_coordinate_message : :trim_coordinate_message
+    I18n.t(message_key, count: victim_count, total: total, keep: trim_keep, **coordinate_label(key))
   end
 
   def world_name(wid)
