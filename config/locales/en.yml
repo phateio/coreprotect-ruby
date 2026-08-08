@@ -18,6 +18,8 @@ en:
   trim_state_missing_message: "No checkpoint found at db/trim_state.yml; specify `--start=ROWID` for the first run."
   trim_kill_notice_message: "Trimming `kill` rows may leave orphaned entities; run `co:purge_orphaned_entities` to clean them up."
   trim_coordinate_skipped_message: "Skipped %<world>s (%<x>d, %<y>d, %<z>d) action=%<action>s after an error: %<error>s"
+  trim_column_message: "Trimming %<count>d of %<total>d rows at %<world>s (%<x>d, *, %<z>d) whole column, keeping the newest %<keep>d."
+  trim_dry_run_column_message: "Would trim %<count>d of %<total>d rows at %<world>s (%<x>d, *, %<z>d) whole column, keeping the newest %<keep>d."
   # Prompts retained for the legacy block:purge rake task; co.thor commands no longer prompt.
   record_deletion_prompt: "Estimated %<count>s rows to be scan, are you sure you want to continue?"
   prompt_canceled_message: "Canceled tasks."
