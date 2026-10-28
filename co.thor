@@ -39,6 +39,9 @@ class Co < Thor
   # collapsing to per-column keep is safe; normal play stays far below and keeps its
   # precise per-(y, action) trim.
   COVERING_THRESHOLD = 50_000
+  # Seconds a row's time may run ahead of its rowid order. CoreProtect writes co_block
+  # in time order (measured 0 s skew over 1.8M rows), so this is only a safety margin.
+  TRIM_TIME_SLACK = 600
   TRIM_STATE_FILE = File.expand_path('db/trim_state.yml', __dir__)
 
   desc 'purge', 'Purge blocks from the database'
@@ -319,8 +322,9 @@ class Co < Thor
   def trim_proc
     proc do |r1|
       r2 = [r1 + TRIM_SEGMENT_SIZE - 1, trim_to].min
+      begin_segment(r2)
       hot_coordinates(r1, r2).each_key do |key|
-        trim_coordinate(key, r2)
+        trim_coordinate(key)
       rescue ActiveRecord::StatementInvalid => e
         # One history-heavy coordinate must never abort the whole run and forfeit
         # the segment's checkpoint; skip it and carry on with the rest.
@@ -328,6 +332,25 @@ class Co < Thor
       end
       save_trim_state(r2) unless options[:dry_run]
     end
+  end
+
+  # Per-segment state: the column memos below are only valid within one segment, since
+  # a column's size and trimmed status change as the upper rowid moves on.
+  def begin_segment(upper_rowid)
+    @upper_rowid = upper_rowid
+    @time_ceiling = Block.where(rowid: ..upper_rowid).order(rowid: :desc).pick(:time) + TRIM_TIME_SLACK
+    @big_column = {}
+    @columns_trimmed = {}
+  end
+
+  # Bound a time-ordered scan to the segment. `rowid <=` alone filters only after the
+  # (wid, x, z, time) index has walked every newer row (with a table look-up each on the
+  # precise path); on an active machine column a lagging run faces hundreds of thousands
+  # of them per coordinate, past max_statement_time. The time ceiling starts the index
+  # range at the segment instead; TRIM_TIME_SLACK absorbs rows whose time runs ahead
+  # of their rowid order.
+  def segment_bound(scope)
+    scope.where(rowid: ..@upper_rowid, time: ..@time_ceiling)
   end
 
   def hot_coordinates(rowid_from, rowid_to)
@@ -341,14 +364,14 @@ class Co < Thor
   # (a COVERING_THRESHOLD-th newest row exists) is trimmed whole through the covering
   # index; a normal coordinate keeps its precise per-(y, action) trim. Once a big column
   # is trimmed whole, its other (y, action) hot keys in the same segment are skipped.
-  def trim_coordinate(key, upper_rowid)
+  def trim_coordinate(key)
     column = key.values_at(0, 1, 3)
     return if column_trimmed?(column)
 
-    if big_column?(column, upper_rowid)
-      trim_big_column(column, upper_rowid)
+    if big_column?(column)
+      trim_big_column(column)
     else
-      trim_small_coordinate(key, upper_rowid)
+      trim_small_coordinate(key)
     end
   end
 
@@ -356,8 +379,8 @@ class Co < Thor
   # (the keep-th newest rowid) is found through the (wid, x, z, time) index in time
   # order (O(keep) look-ups, no rowid filesort); rows below it are deleted in bounded
   # `--step` slices, so no single statement scales with the backlog.
-  def trim_small_coordinate(key, upper_rowid)
-    cutoff = coordinate_cutoff(key, upper_rowid)
+  def trim_small_coordinate(key)
+    cutoff = coordinate_cutoff(key)
     return if cutoff.nil?
 
     return report_planned_trim(key, cutoff) if options[:dry_run]
@@ -373,9 +396,9 @@ class Co < Thor
   # (wid, x, z) column. Both the cutoff and the delete ride the (wid, x, z, time) index
   # with no table look-up, so a million-row column trims at index speed instead of
   # stalling on per-row y/action filtering.
-  def trim_big_column(column, upper_rowid)
+  def trim_big_column(column)
     mark_column_trimmed(column)
-    cutoff = column_cutoff(column, upper_rowid)
+    cutoff = column_cutoff(column)
     return if cutoff.nil?
 
     return report_planned_column(column, cutoff) if options[:dry_run]
@@ -391,22 +414,20 @@ class Co < Thor
   # COVERING_THRESHOLD-th newest row exists (O(threshold) leaf reads through the
   # (wid, x, z, time) index) instead of a full COUNT of a million-row column. Memoized
   # per column, since a column carries several (y, action) hot keys in one segment.
-  def big_column?(column, upper_rowid)
-    cache = (@big_column ||= {})
-    cache.fetch(column) do
-      cache[column] = !column_scope(column).where(rowid: ..upper_rowid)
-                                           .order(time: :desc).offset(COVERING_THRESHOLD - 1)
-                                           .limit(1).pick(:rowid).nil?
+  def big_column?(column)
+    @big_column.fetch(column) do
+      @big_column[column] = !segment_bound(column_scope(column))
+                            .order(time: :desc).offset(COVERING_THRESHOLD - 1)
+                            .limit(1).pick(:rowid).nil?
     end
   end
 
-  def column_cutoff(column, upper_rowid)
-    column_scope(column).where(rowid: ..upper_rowid)
-                        .order(time: :desc).offset(trim_keep - 1).limit(1).pick(:rowid)
+  def column_cutoff(column)
+    segment_bound(column_scope(column)).order(time: :desc).offset(trim_keep - 1).limit(1).pick(:rowid)
   end
 
   def delete_column_below(column, cutoff)
-    scope = column_scope(column).where(rowid: ...cutoff)
+    scope = segment_bound(column_scope(column)).where(rowid: ...cutoff)
     delete_in_batches { scope.limit(limit_param).delete_all }
   end
 
@@ -445,7 +466,7 @@ class Co < Thor
   end
 
   def report_planned_column(column, cutoff)
-    victims = column_scope(column).where(rowid: ...cutoff).count
+    victims = segment_bound(column_scope(column)).where(rowid: ...cutoff).count
     return if victims.zero?
 
     @trimmed_row_count += victims
@@ -453,16 +474,15 @@ class Co < Thor
   end
 
   def column_trimmed?(column)
-    (@columns_trimmed ||= {}).key?(column)
+    @columns_trimmed.key?(column)
   end
 
   def mark_column_trimmed(column)
-    (@columns_trimmed ||= {})[column] = true
+    @columns_trimmed[column] = true
   end
 
-  def coordinate_cutoff(key, upper_rowid)
-    Block.where(coordinate_scope(key)).where(rowid: ..upper_rowid)
-         .order(time: :desc).offset(trim_keep - 1).limit(1).pick(:rowid)
+  def coordinate_cutoff(key)
+    segment_bound(Block.where(coordinate_scope(key))).order(time: :desc).offset(trim_keep - 1).limit(1).pick(:rowid)
   end
 
   # Precise delete below the cutoff, page by page. `y`/`action` aren't in the
@@ -470,7 +490,7 @@ class Co < Thor
   # cursor (see keyset_page) keeps that to once per row instead of re-scanning the whole
   # column every batch (O(n^2) on a million-row column, which stalled the run for days).
   def delete_below(key, cutoff)
-    scope = Block.where(coordinate_scope(key)).where(rowid: ...cutoff)
+    scope = segment_bound(Block.where(coordinate_scope(key))).where(rowid: ...cutoff)
     cursor = nil
     delete_in_batches do
       batch = keyset_page(scope, cursor)
@@ -502,7 +522,7 @@ class Co < Thor
   end
 
   def victim_count(key, cutoff)
-    Block.where(coordinate_scope(key)).where(rowid: ...cutoff).count
+    segment_bound(Block.where(coordinate_scope(key))).where(rowid: ...cutoff).count
   end
 
   def planned_victims
