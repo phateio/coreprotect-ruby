@@ -51,10 +51,9 @@ is a deliberate alias for the `user` foreign-key column (avoids clashing with th
 
 ## Commands
 
-All three commands accept `--timeout=N` — session `max_statement_time` in seconds for the
-run (default: 600), overriding the `.env` `TIMEOUT` of 10 s, which would kill statements
-that run long on cold caches (the orphaned-entities `NOT EXISTS` batches were observed
-being killed at 10 s) or on history-heavy coordinates (trim's scans/plucks).
+All three commands accept `--timeout=N` (session `max_statement_time` in seconds, default
+600), overriding the `.env` `TIMEOUT` of 10 s, which kills statements that run long on cold
+caches (observed on the orphaned-entities `NOT EXISTS` batches) or history-heavy coordinates.
 
 ### `co:purge` — purge old block records
 
@@ -111,35 +110,41 @@ newest N rows per `(wid, x, y, z, action)`"; quiet coordinates (old buildings) a
 touched. Complements `co:purge` — purge deletes by age, trim caps per-coordinate
 accumulation while preserving old history.
 
-Scans rows added since the last checkpoint (primary-key range scan) in 1,000,000-rowid
-segments: per segment, `GROUP BY (wid, x, y, z, action) HAVING COUNT(*) >= threshold`
-finds hot keys; each hot key keeps its newest `--keep` rows (bounded by the segment's
-upper rowid) and the rest are deleted by primary key in `--step`-sized slices. After each
-segment the checkpoint is saved to `db/trim_state.yml` (gitignored), so interrupted runs
-resume automatically.
+Scans rows added since the last checkpoint in 1,000,000-rowid segments. Hot keys come from a
+`GROUP BY (wid, x, y, z, action)` per 100,000-rowid chunk (`HOT_SCAN_CHUNK`) keeping keys at
+≥ ⌈threshold × chunk/segment⌉, summed; this can only undercount, so it flags a subset of a
+whole-segment `HAVING COUNT(*) >= threshold`. Each hot key keeps its newest `--keep` rows:
+the cutoff is found in time order on the `(wid, x, z, time)` index, every scan is capped at the
+segment (its last rowid and that row's time + `TRIM_TIME_SLACK`, 600 s), and older rows are
+deleted by primary key in `--step` slices. A machine column (a `(wid, x, z)` with ≥ 50,000
+rows, `COVERING_THRESHOLD`) keeps its newest `--keep` as a whole, via that covering index.
+`db/trim_state.yml` (gitignored) holds the `rowid` checkpoint, advanced only when a segment
+finishes, and `segment:` progress (range, sorted hot keys, done count) saved per coordinate,
+so an interrupted run resumes at the next key.
 
 ```bash
 bin/thor co:trim [options]
 ```
 
 Options:
-- `--start=ROWID` — scan from this rowid (overrides the checkpoint; required on the very
-  first run, when no checkpoint file exists)
+- `--start=ROWID` — scan from this rowid (overrides the checkpoint; required on the first run)
 - `--end=ROWID` — stop at this rowid (default: current max)
 - `--keep=N` — newest rows to keep per hot coordinate (default: 7)
-- `--threshold=N` — new rows per coordinate within the window to flag it as hot
-  (default: 100; must be ≥ `--keep`)
+- `--threshold=N` — new rows per coordinate in the window to flag it hot (default: 100; ≥ `--keep`)
 - `--action=LIST` / `-a` — actions to consider (default: `-block,+block,click`; `kill` is
   excluded by default because deleting kill rows orphans `co_entity` rows — if you include
   it, run `co:purge_orphaned_entities` afterwards; the command prints a reminder)
-- `--step=N` — delete batch size (default: 1000)
-- `--timeout=N` — session `max_statement_time` in seconds for this run (default: 600)
-- `--dry-run` — report hot coordinates and planned deletions without deleting and without
-  saving the checkpoint
+- `--step=N` — delete batch size (default: 100)
+- `--yield-after=N` — before every query, wait (polling every 30 s) while another
+  transaction has been open N s or any lock wait exists; CoreProtect commits each consumer
+  batch as one transaction, so an old one means it is backed up (default: 60; 0 disables)
+- `--throttle=N` — after every query, sleep N × its duration; disk duty ≈ 1/(1+N) (default: 9)
+- `--timeout=N` — session `max_statement_time` in seconds for this run (default: 600);
+  production runs pass a short one (e.g. 30), as yield and throttle act only between statements
+- `--dry-run` — report hot coordinates and planned deletions without deleting or saving progress
 
 ```bash
-# Typical cron usage: daily incremental trim from the last checkpoint
-bin/thor co:trim
+bin/thor co:trim --timeout=30   # typical daily cron run, resuming from the checkpoint
 ```
 
 ## Database Schema (`db/schema.rb`)
