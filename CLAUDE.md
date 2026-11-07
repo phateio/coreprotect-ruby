@@ -178,10 +178,9 @@ target database is **CoreProtect v24.0** on MariaDB 10.11.x.
   - `co_block` has extra indexes `data (data, time)` and
     `user_action (user, action, time)`.
 
-- **Known caveat**: `bundle exec` may fail on this host when `Gemfile.lock` pins
-  gems that are not installed locally (e.g. a yanked `connection_pool 3.0.2`, or
-  `activerecord 7.2.3.1` vs the installed 7.2.3). If so, run `bundle update` first,
-  or dump using the system gems directly (mirrors the `db:schema` task):
+- **Known caveat**: `connection_pool` must stay on 2.x while the Gemfile allows Ruby 3.1 (3.x
+  needs Ruby ≥ 3.2, which Bundler 2.3.7 misreports as "can no longer be found"). If
+  `bundle exec` reports locked gems missing, run `bundle install` first, or dump without Bundler:
 
       ruby -e 'require "dotenv/load"; require "erb"; require "yaml"; require "active_record"; require "active_record/schema_dumper"; \
         cfg = YAML.load(ERB.new(File.read("config/database.yml")).result); \
